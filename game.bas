@@ -28,6 +28,7 @@
 #include "gfx.bi"
 #include "pathfinding.bi"
 #include "bcommon.bi"
+#include "steam.bi"
 
 
 'local subs and functions
@@ -263,6 +264,12 @@ IF running_under_Custom THEN debuginfo "Spawned from Custom"
 
 
 '============================== Initialise backends ===========================
+
+IF Initialize_Steam() THEN
+  debuginfo "Steam initialized"
+ELSE
+  debuginfo "Steam not initialized"
+END IF
 
 'DEBUG debug "set mode-X"
 set_resolution read_config_int("gfx.resolution_w", 320), read_config_int("gfx.resolution_h", 200)
