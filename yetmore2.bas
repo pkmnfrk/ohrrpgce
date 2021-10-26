@@ -22,6 +22,7 @@
 #include "menustuf.bi"
 #include "savegame.bi"
 #include "bmodsubs.bi"
+#include "steam.bi"
 
 Using Reload
 Using Reload.Ext
@@ -275,6 +276,9 @@ killdir tmpdir, YES  'recursively deletes playing.tmp if it exists
 v_free modified_lumps
 
 restoremode
+
+Uninitialize_Steam()
+
 debuginfo "End."
 terminate_program errorout
 

@@ -969,7 +969,6 @@ reset_game_final_cleanup  'This may call exitprogram
 
 LOOP ' This is the end of the DO that encloses the entire program.
 
-
 '==========================================================================================
 '==========================================================================================
 

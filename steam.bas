@@ -1,27 +1,44 @@
+#include "common_base.bi"
 #include "steam.bi"
 
-Dim steamworks_handle As Any Ptr
+
+dim shared steamworks_handle as any ptr = null
 
 ' S_API bool S_CALLTYPE SteamAPI_Init();
-Dim SteamAPI_Init As Function() As bool
+dim shared SteamAPI_Init as function() As boolint
 
-FUNCTION Initialize_Steam() as bool
+function initialize_steam() as boolean
 
     steamworks_handle = dylibload("steam_api")
 
-    if not steamworks_handle then
+    if steamworks_handle = null then
+        debug "Was not able to open steam_api.dll"
         return false
     end if
 
-    SteamAPI_Init = dylibload(steamworks_handle, "SteamAPI_Init")
-    if not SteamAPI_Init then
-        return falseadsfdsfasdf
+    SteamAPI_Init = dylibsymbol(steamworks_handle, "SteamAPI_Init")
+    if SteamAPI_Init = 0 then
+        debug "was not able to find SteamAPI_Init"
+        return false
+    end if
+
+    if SteamAPI_Init() = false then
+        debug "unable to initialize steamworks"
+        uninitialize_Steam()
+        return false
     end if
 
     return true
 
-END FUNCTION
+end function
 
-FUNCTION Steam_Available() as bool
-    return not not steamworks_handle
-END FUNCTION
+sub uninitialize_steam()
+    if steamworks_handle <> null then
+        dylibfree(steamworks_handle)
+        steamworks_handle = null
+    end if
+end sub
+
+function steam_available() as boolean
+    return steamworks_handle <> null
+end function

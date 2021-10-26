@@ -1,7 +1,8 @@
 #IFNDEF STEAM_BI
 #DEFINE STEAM_BI
 
-DECLARE FUNCTION Initialize_Steam() as bool
-DECLARE FUNCTION Steam_Availabile() as bool
+declare function initialize_steam() as boolean
+declare sub uninitialize_steam()
+declare function steam_availabile() as boolean
 
 #ENDIF

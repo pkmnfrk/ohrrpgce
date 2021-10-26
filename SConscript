@@ -1127,6 +1127,7 @@ shared_modules += ['allmodex',
                    'reloadext',
                    'sliceedit',
                    'slices',
+                   'steam',
                    'thingbrowser',
                    'plankmenu']
 
