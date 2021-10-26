@@ -6,6 +6,21 @@ dim shared steamworks_handle as any ptr = null
 
 ' S_API bool S_CALLTYPE SteamAPI_Init();
 dim shared SteamAPI_Init as function() As boolint
+' S_API void S_CALLTYPE SteamAPI_Shutdown();
+dim shared SteamAPI_Shutdown as sub()
+' S_API bool S_CALLTYPE SteamAPI_RestartAppIfNecessary( uint32 unOwnAppID );
+dim shared SteamAPI_RestartAppIfNecessary as function( byval unOwnAppID as integer ) as boolint
+
+#macro MUSTLOAD(hfile, procedure)
+	procedure = dylibsymbol(hfile, #procedure)
+	if procedure = NULL then
+        debug "Was not able to find " & #procedure
+        ' do this instead of uninitialize_steam(), since it assumes we succeeded in initializing
+        dylibfree(hFile)
+        hFile = null
+		return NO
+	end if
+#endmacro
 
 function initialize_steam() as boolean
 
@@ -16,17 +31,20 @@ function initialize_steam() as boolean
         return false
     end if
 
-    SteamAPI_Init = dylibsymbol(steamworks_handle, "SteamAPI_Init")
-    if SteamAPI_Init = 0 then
-        debug "was not able to find SteamAPI_Init"
-        return false
-    end if
+    MUSTLOAD(steamworks_handle, SteamAPI_Init)
+    MUSTLOAD(steamworks_handle, SteamAPI_Shutdown)
+    MUSTLOAD(steamworks_handle, SteamAPI_RestartAppIfNecessary)
 
     if SteamAPI_Init() = false then
         debug "unable to initialize steamworks"
         uninitialize_Steam()
         return false
     end if
+
+    ' todo: is this necessary?
+    ' if SteamAPI_RestartAppIfNecessary( ourAppId ) <> false then
+    '     debug "Steam seems to want to restart the application for some reason"
+    ' end if
 
     return true
 
