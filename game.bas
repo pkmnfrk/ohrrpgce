@@ -1176,6 +1176,7 @@ SUB displayall()
  IF gam.debug_textbox_info THEN show_textbox_debug_info
  IF gam.debug_showtags THEN tagdisplay dpage
  IF gam.debug_scripts THEN scriptwatcher gam.debug_scripts, YES
+ run_steam_frame
 END SUB
 
 
