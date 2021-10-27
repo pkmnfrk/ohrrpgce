@@ -192,6 +192,10 @@ end sub
 
 sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
     debug "On User Stats Received"
+    if SteamAPI_ISteamUserStats_ClearAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
+        debug "unable to clear an achievement"
+    end if
+    
     if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
         debug "unable to set an achievement"
     else
