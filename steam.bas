@@ -1,24 +1,6 @@
 #include "common_base.bi"
 #include "steam.bi"
-
-type ISteamUserStats as any ptr
-type HSteamPipe as integer
-type HSteamUser as integer
-type SteamAPICall_t as ulong
-
-type CallbackMsg_t
-    m_hSteamUser as HSteamUser
-    m_iCallback as integer
-    m_pubParam as ubyte ptr
-    m_cubParam as integer
-end type
-
-type SteamAPICallCompleted_t
-    const k_iCallback as integer = 703
-    m_hAsyncCall as SteamAPICall_t
-    m_iCallback as integer
-    m_cubParam as uinteger
-end type
+#include "steam_internal.bi"
 
 dim shared steamworks_handle as any ptr = null
 
@@ -28,7 +10,7 @@ dim shared SteamAPI_Init as function() As boolint
 ' S_API void S_CALLTYPE SteamAPI_Shutdown();
 dim shared SteamAPI_Shutdown as sub()
 ' S_API bool S_CALLTYPE SteamAPI_RestartAppIfNecessary( uint32 unOwnAppID );
-dim shared SteamAPI_RestartAppIfNecessary as function( byval unOwnAppID as integer ) as boolint
+dim shared SteamAPI_RestartAppIfNecessary as function( byval unOwnAppID as uinteger ) as boolint
 
 ' callback infrastructure
 ' S_API HSteamPipe S_CALLTYPE SteamAPI_GetHSteamPipe();
@@ -46,15 +28,18 @@ dim shared SteamAPI_ManualDispatch_GetAPICallResult as function ( hSteamPipe as 
 
 ' achievements
 ' S_API ISteamUserStats *SteamAPI_SteamUserStats_v012();
-dim shared SteamAPI_SteamUserStats_v012 as function () as ISteamUserStats
+dim shared SteamAPI_SteamUserStats_v012 as function () as ISteamUserStats ptr
 ' S_API bool SteamAPI_ISteamUserStats_RequestCurrentStats( ISteamUserStats* self );
-dim shared SteamAPI_ISteamUserStats_RequestCurrentStats as function(byval self as ISteamUserStats) as boolint
+dim shared SteamAPI_ISteamUserStats_RequestCurrentStats as function(byval self as ISteamUserStats ptr) as boolint
 ' S_API bool SteamAPI_ISteamUserStats_SetAchievement( ISteamUserStats* self, const char * pchName );
-dim shared SteamAPI_ISteamUserStats_SetAchievement as function(byval self as ISteamUserStats, byval name as string) as boolint
+dim shared SteamAPI_ISteamUserStats_SetAchievement as function(byval self as ISteamUserStats ptr, byval name as const zstring ptr) as boolint
 ' S_API bool SteamAPI_ISteamUserStats_ClearAchievement( ISteamUserStats* self, const char * pchName );
-dim shared SteamAPI_ISteamUserStats_ClearAchievement as function(byval self as ISteamUserStats, byval name as string) as boolint
+dim shared SteamAPI_ISteamUserStats_ClearAchievement as function(byval self as ISteamUserStats ptr, byval name as const zstring ptr) as boolint
 ' S_API bool SteamAPI_ISteamUserStats_StoreStats( ISteamUserStats* self );
-dim shared SteamAPI_ISteamUserStats_StoreStats as function(byval self as ISteamUserStats) as boolint
+dim shared SteamAPI_ISteamUserStats_StoreStats as function(byval self as ISteamUserStats ptr) as boolint
+
+
+dim shared steam_user_stats as ISteamUserStats ptr
 
 #macro MUSTLOAD(hfile, procedure)
 	procedure = dylibsymbol(hfile, #procedure)
@@ -106,25 +91,15 @@ function initialize_steam() as boolean
 
     ' this section is probably all temporary
     ' also it doesn't work, because of the highly asyncronous nature of steamworks
-    ' dim stats as ISteamUserStats = SteamAPI_SteamUserStats_v012()
+    steam_user_stats = SteamAPI_SteamUserStats_v012()
 
-    ' if stats = null then
-    '     debug "Unable to obtain user stats object"
-    ' else
-    '     if SteamAPI_ISteamUserStats_RequestCurrentStats(stats) = false then
-    '         debug "Unable to request current stats"
-    '     else
-    '         if SteamAPI_ISteamUserStats_SetAchievement(stats, "ACH_WIN_ONE_GAME") = false then
-    '             debug "unable to set an achievement"
-    '         else
-    '             if SteamAPI_ISteamUserStats_StoreStats(stats) = false then
-    '                 debug "unable to persist stats"
-    '             else
-    '                 debug "rewarded achievement"
-    '             end if
-    '         end if
-    '     end if
-    ' end if
+    if steam_user_stats = null then
+        debug "Unable to obtain user stats object"
+    else
+        if SteamAPI_ISteamUserStats_RequestCurrentStats(steam_user_stats) = false then
+            debug "Unable to request current stats"
+        end if
+    end if
 
     return true
 
@@ -141,10 +116,23 @@ function steam_available() as boolean
     return steamworks_handle <> null
 end function
 
+#macro CALLBACK_HANDLER(typ, handler)
+    case typ.k_iCallback
+        debug "Steam: " & #typ
+        debug "message length: " & callback.m_cubParam
+        dim typ##Msg as typ ptr = cast(typ ptr, callback.m_pubParam)
+        handler(typ##Msg)
+#endmacro
+
+#macro IGNORE(id)
+    case id
+        debug "Ignored Steam id: " & id
+#endmacro
+
 sub run_steam_frame()
     if steam_available() = false then return
 
-    debug "run_steam_frame"
+    ' debug "run_steam_frame"
 
     ' HSteamPipe hSteamPipe = SteamAPI_GetHSteamPipe(); // See also SteamGameServer_GetHSteamPipe()
     dim hSteamPipe as HSteamPipe = SteamAPI_GetHSteamPipe()
@@ -181,11 +169,36 @@ sub run_steam_frame()
 	' 	{
 	' 		// Look at callback.m_iCallback to see what kind of callback it is,
 	' 		// and dispatch to appropriate handler(s)
-            debug "Steam: Some other handler"
+            select case callback.m_iCallback
+                CALLBACK_HANDLER(UserStatsReceived_t, OnUserStatsReceived)
+                ' these are messages that we either don't know the identity of, or we don't care
+                IGNORE(715)
+                IGNORE(304)
+                IGNORE(711)
+                IGNORE(903)
+                IGNORE(501)
+                IGNORE(502) ' favorites list changed
+                IGNORE(1006)
+                case else
+                    debug "Steam: Some other handler: " & callback.m_iCallback
+            end select
 	' 	}
         end if
 	' 	SteamAPI_ManualDispatch_FreeLastCallback( hSteamPipe );
         SteamAPI_ManualDispatch_FreeLastCallback(hSteamPipe)
 	' }
     wend
+end sub
+
+sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
+    debug "On User Stats Received"
+    if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
+        debug "unable to set an achievement"
+    else
+        if SteamAPI_ISteamUserStats_StoreStats(steam_user_stats) = false then
+            debug "unable to persist stats"
+        else
+            debug "rewarded achievement"
+        end if
+    end if
 end sub
