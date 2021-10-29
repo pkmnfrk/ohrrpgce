@@ -15,16 +15,12 @@ type AchievementDefinition
     max_value as uint64
     progress_interval as uinteger
     latching as boolean
-    tag_count as integer
-    tags as integer ptr ' boo, free basic
+    tags(any) as integer ' yay, free basic
     steam_id as string
-
-    declare constructor ()
-    declare constructor (byref as AchievementDefinition)
-    declare destructor
 end type
 
 declare sub load_achievements(file_path as string)
 declare sub free_achievements()
+declare sub achievement_tag_notify(id as integer, state as boolean)
 
 #endif

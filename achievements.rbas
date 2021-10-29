@@ -1,44 +1,14 @@
 #include "achievements.bi"
 #include "reload.bi"
+#include "steam.bi"
 
 using Reload
 
+' Local functions
+declare function type_name_to_enum(name as string) as AchievementType
+
 dim shared next_id as integer
 redim shared achievements(0) as AchievementDefinition
-
-constructor AchievementDefinition
-    id = 0
-    name = ""
-    achievement_type = AchievementType.flag
-    max_value = 0
-    progress_interval = 0
-    latching = false
-    tag_count = 0
-    steam_id = ""
-    tags = null
-end constructor
-
-constructor AchievementDefinition(byref inst as AchievementDefinition)
-    id = inst.id
-    name = inst.name
-    achievement_type = inst.achievement_type
-    max_value = inst.max_value
-    progress_interval = inst.progress_interval
-    latching = inst.latching
-    tag_count = inst.tag_count
-    steam_id = inst.steam_id
-
-    if inst.tags then
-        tags = new integer(tag_count)
-    end if
-end constructor
-
-destructor AchievementDefinition
-    if tags then
-        delete[] tags
-        tags = null
-    end if
-end destructor
 
 sub load_achievements(file_path as string)
     free_achievements
@@ -60,8 +30,23 @@ sub load_achievements(file_path as string)
     READNODE cheevos
         WITHNODE cheevos."achievement" as cheevo   
             ' debug "achievements: loading achievement #" & i
-            achievements(i).id = GetInteger(cheevo)
-            achievements(i).name = cheevo."name".string
+            with achievements(i)
+                .id = GetInteger(cheevo)
+                .name = cheevo."name".string
+                .achievement_type = type_name_to_enum(cheevo."type".string)
+                .max_value = cheevo."max_value".integer
+                .progress_interval = cheevo."progress_interval".integer
+                .latching = cheevo."latching".exists
+                .steam_id = cheevo."steam_id".string
+
+                redim .tags(CountChildren(cheevo."tags".ptr, "tag"))
+
+                dim tag as Nodeptr = FirstChild(cheevo."tags".ptr, "tag")
+                for t as integer = 0 to ubound(.tags)
+                    .tags(t) = GetInteger(tag)
+                    tag = NextSibling(tag, "tag")
+                next
+            end with
             ' debug "achievements: Finished loading achievement #" & i & ", " & achievements(i).name
             i += 1
         END WITHNODE
@@ -74,3 +59,39 @@ sub free_achievements
     redim achievements(0)
     next_id = 1
 end sub
+
+sub achievement_tag_notify(id as integer, state as boolean)
+    for i as integer = 0 to ubound(achievements)
+        with achievements(i)
+            for t as integer = 0 to ubound(.tags)
+                if .tags(t) = id then
+                    ' do something
+                end if
+            next
+        end with
+    next
+end sub
+
+function type_name_to_enum(name as string) as AchievementType
+    select case name
+        case "flag"
+            return AchievementType.flag
+        case "count"
+            return AchievementType.count
+        case else
+            debug "achievements: unknown achievement type string: " & name
+            return AchievementType.flag
+    end select
+end function
+
+function type_enum_to_name(typ as AchievementType) as string
+    select case typ
+        case AchievementType.flag
+            return "flag"
+        case AchievementType.count
+            return "count"
+        case else
+            debug "achievements: unknown achievement type enum: " & typ
+            return "flag"
+    end select
+end function

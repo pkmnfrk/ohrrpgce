@@ -133,6 +133,26 @@ function steam_available() as boolean
     return steamworks_handle <> null
 end function
 
+sub reward_achievement(id as string)
+    if steam_available() = false then return
+
+    if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, id) = false then
+        debug "steam: unable to reward achievement: " & id
+    else
+        if SteamAPI_ISteamUserStats_StoreStats(steam_user_stats) = false then
+            debug "unable to persist stats"
+        end if
+    end if
+end sub
+
+sub clear_achievement(id as string)
+    if steam_available() = false then return
+
+    if SteamAPI_ISteamUserStats_ClearAchievement(steam_user_stats, id) = false then
+        debug "unable to clear an achievement: " & id
+    end if
+end sub
+
 #macro CALLBACK_HANDLER(typ, handler)
     case typ.k_iCallback
         debug "Steam: " & #typ
@@ -154,15 +174,7 @@ sub run_steam_frame()
     if achieve_timer >= 0 then
         achieve_timer -= 1
         if achieve_timer < 0 then
-            if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
-                debug "unable to set an achievement"
-            else
-                if SteamAPI_ISteamUserStats_StoreStats(steam_user_stats) = false then
-                    debug "unable to persist stats"
-                else
-                    debug "rewarded achievement"
-                end if
-            end if
+            reward_achievement("ACH_WIN_ONE_GAME")
         end if
     end if
 
@@ -226,9 +238,7 @@ end sub
 
 sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
     debug "On User Stats Received"
-    if SteamAPI_ISteamUserStats_ClearAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
-        debug "unable to clear an achievement"
-    end if
+    clear_achievement("ACH_WIN_ONE_GAME")
 
     achieve_timer = 1000
 end sub
