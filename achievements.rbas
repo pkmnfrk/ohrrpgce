@@ -1,0 +1,73 @@
+#include "achievements.bi"
+#include "reload.bi"
+
+using Reload
+
+dim shared next_id as integer
+redim shared achievements(0) as AchievementDefinition
+
+constructor AchievementDefinition
+    id = 0
+    name = ""
+    achievement_type = AchievementType.flag
+    max_value = 0
+    progress_interval = 0
+    latching = false
+    tag_count = 0
+    steam_id = ""
+    tags = null
+end constructor
+
+constructor AchievementDefinition(byref inst as AchievementDefinition)
+    id = inst.id
+    name = inst.name
+    achievement_type = inst.achievement_type
+    max_value = inst.max_value
+    progress_interval = inst.progress_interval
+    latching = inst.latching
+    tag_count = inst.tag_count
+    steam_id = inst.steam_id
+
+    if inst.tags then
+        tags = new integer(tag_count)
+    end if
+end constructor
+
+destructor AchievementDefinition
+    if tags then
+        delete[] tags
+        tags = null
+    end if
+end destructor
+
+sub load_achievements(file_path as string)
+    free_achievements
+
+    DIM doc as Docptr
+    doc = LoadDocument(file_path)
+    if doc = null then return
+
+    dim cheevos as Nodeptr = DocumentRoot(doc)
+    if cheevos = null then
+        FreeDocument(doc)
+        return
+    end if
+
+    dim num_achievements as integer = CountChildren(cheevos, "achvievement")
+    redim achievements(num_achievements)
+    dim i as integer = 0
+    READNODE cheevos
+        WITHNODE cheevos."achievement" as cheevo   
+            achievements(i).id = GetInteger(cheevo)
+            achievements(i).name = cheevo."name".string
+            i += 1
+        END WITHNODE
+    END READNODE
+
+    FreeDocument(doc)
+end sub
+
+sub free_achievements
+    redim achievements(0)
+    next_id = 1
+end sub

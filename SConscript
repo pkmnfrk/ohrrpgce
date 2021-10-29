@@ -1112,7 +1112,8 @@ reload_modules =  ['reload.bas',
 # (.bas files only) 
 # (All shared FB files are here instead of common_modules so we don't have to
 # remember where using IS_GAME/IS_CUSTOM is allowed.)
-shared_modules += ['allmodex',
+shared_modules += ['achievements.rbas',
+                   'allmodex',
                    'audiofile',
                    'backends',
                    'bam2mid',
