@@ -146,8 +146,25 @@ end function
         debug "Ignored Steam id: " & id
 #endmacro
 
+dim shared achieve_timer as integer = -1
+
 sub run_steam_frame()
     if steam_available() = false then return
+
+    if achieve_timer >= 0 then
+        achieve_timer -= 1
+        if achieve_timer < 0 then
+            if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
+                debug "unable to set an achievement"
+            else
+                if SteamAPI_ISteamUserStats_StoreStats(steam_user_stats) = false then
+                    debug "unable to persist stats"
+                else
+                    debug "rewarded achievement"
+                end if
+            end if
+        end if
+    end if
 
     ' debug "run_steam_frame"
 
@@ -213,13 +230,5 @@ sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
         debug "unable to clear an achievement"
     end if
 
-    ' if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, "ACH_WIN_ONE_GAME") = false then
-    '     debug "unable to set an achievement"
-    ' else
-        if SteamAPI_ISteamUserStats_StoreStats(steam_user_stats) = false then
-            debug "unable to persist stats"
-        else
-            debug "rewarded achievement"
-        end if
-    ' end if
+    achieve_timer = 1000
 end sub
