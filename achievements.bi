@@ -15,8 +15,20 @@ type AchievementDefinition
     max_value as uint64
     progress_interval as uinteger
     latching as boolean
-    tags(any) as integer ' yay, free basic
+    tags as integer vector ' yay, free basic
     steam_id as string
+
+    declare constructor
+    declare destructor
+end type
+
+type AchievementProgress
+    id as uinteger
+    value as uint64
+    seen_tags as integer vector
+
+    declare constructor
+    declare destructor
 end type
 
 declare sub load_achievements(file_path as string)

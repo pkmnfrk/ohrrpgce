@@ -9,6 +9,7 @@ declare function type_name_to_enum(name as string) as AchievementType
 
 dim shared next_id as integer
 redim shared achievements(0) as AchievementDefinition
+redim shared achievement_progress(0) as AchievementProgress
 
 sub load_achievements(file_path as string)
     free_achievements
@@ -25,8 +26,12 @@ sub load_achievements(file_path as string)
 
     dim num_achievements as integer = CountChildren(cheevos, "achievement")
     ' debug "achievements: loading " & num_achievements & " from disk"
+    
     redim achievements(num_achievements)
+    redim achievement_progress(num_achievements)
+
     dim i as integer = 0
+
     READNODE cheevos
         WITHNODE cheevos."achievement" as cheevo   
             ' debug "achievements: loading achievement #" & i
@@ -39,13 +44,11 @@ sub load_achievements(file_path as string)
                 .latching = cheevo."latching".exists
                 .steam_id = cheevo."steam_id".string
 
-                redim .tags(CountChildren(cheevo."tags".ptr, "tag"))
-
                 dim tag as Nodeptr = FirstChild(cheevo."tags".ptr, "tag")
-                for t as integer = 0 to ubound(.tags)
-                    .tags(t) = GetInteger(tag)
+                while tag <> null
+                    v_append .tags, GetInteger(tag)
                     tag = NextSibling(tag, "tag")
-                next
+                wend
             end with
             ' debug "achievements: Finished loading achievement #" & i & ", " & achievements(i).name
             i += 1
@@ -57,20 +60,48 @@ end sub
 
 sub free_achievements
     redim achievements(0)
+    redim achievement_progress(0)
+
     next_id = 1
 end sub
 
 sub achievement_tag_notify(id as integer, state as boolean)
     for i as integer = 0 to ubound(achievements)
         with achievements(i)
-            for t as integer = 0 to ubound(.tags)
-                if .tags(t) = id then
-                    ' do something
-                end if
-            next
+            dim ix as integer = v_find (.tags, id)
+            if ix <> -1 then
+                ' do something
+            end if
         end with
     next
 end sub
+
+constructor AchievementDefinition
+    id = 0
+    name = ""
+    achievement_type = AchievementType.flag
+    max_value = 0
+    progress_interval = 0
+    latching = false
+    steam_id = ""
+
+    v_new tags
+end constructor
+
+destructor AchievementDefinition
+    v_free tags
+end destructor
+
+
+constructor AchievementProgress
+    id = 0
+    value = 0
+    v_new seen_tags
+end constructor
+
+destructor AchievementProgress
+    v_free seen_tags
+end destructor
 
 function type_name_to_enum(name as string) as AchievementType
     select case name
