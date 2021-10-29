@@ -29,6 +29,7 @@
 #include "pathfinding.bi"
 #include "bcommon.bi"
 #include "steam.bi"
+#include "achievements.bi"
 
 
 'local subs and functions
@@ -633,6 +634,9 @@ SetupGameSlices
 
 'This is called BEFORE the loop, because when the game is quit or a save is loaded, this will be called again there
 reset_game_state
+
+'Load achievement data
+load_achievements workingdir & SLASH & "achievements.reld"
 
 '===================== Stuff reinitialised each new/load-game ==================
 

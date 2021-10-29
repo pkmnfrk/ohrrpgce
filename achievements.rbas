@@ -44,7 +44,7 @@ sub load_achievements(file_path as string)
     free_achievements
 
     DIM doc as Docptr
-    doc = LoadDocument(file_path)
+    doc = LoadDocument(file_path, LoadOptions.optIgnoreMissing)
     if doc = null then return
 
     dim cheevos as Nodeptr = DocumentRoot(doc)
@@ -53,13 +53,16 @@ sub load_achievements(file_path as string)
         return
     end if
 
-    dim num_achievements as integer = CountChildren(cheevos, "achvievement")
+    dim num_achievements as integer = CountChildren(cheevos, "achievement")
+    ' debug "achievements: loading " & num_achievements & " from disk"
     redim achievements(num_achievements)
     dim i as integer = 0
     READNODE cheevos
         WITHNODE cheevos."achievement" as cheevo   
+            ' debug "achievements: loading achievement #" & i
             achievements(i).id = GetInteger(cheevo)
             achievements(i).name = cheevo."name".string
+            ' debug "achievements: Finished loading achievement #" & i & ", " & achievements(i).name
             i += 1
         END WITHNODE
     END READNODE
