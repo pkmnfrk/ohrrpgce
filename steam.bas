@@ -54,10 +54,27 @@ dim shared steam_user_stats as ISteamUserStats ptr
 
 function initialize_steam() as boolean
 
-    steamworks_handle = dylibload("steam_api")
+    #ifdef __FB_WIN32__
+        #ifdef __FB_64BIT__
+            'Future, although not yet supported
+            #define STEAM_LIB "steam_api64"
+            #define STEAM_FULL_FNAME "steam_api64.dll"
+        #else
+            #define STEAM_LIB "steam_api"
+            #define STEAM_FULL_FNAME "steam_api.dll"
+        #endif
+    #elseif defined(__FB_DARWIN__)
+        #define STEAM_LIB "steam_api"
+        #define STEAM_FULL_FNAME "libsteam_api.dylib"
+    #else
+        'Either Linux or maybe a BSD (on which Steam isn't officially support but can be run)
+        #define STEAM_LIB "steam_api"
+        #define STEAM_FULL_FNAME "libsteam_api.so"
+    #endif
 
+    steamworks_handle = dylibload(STEAM_LIB)
     if steamworks_handle = null then
-        debug "Was not able to open steam_api.dll"
+        debug "Was not able to open " STEAM_FULL_FNAME
         return false
     end if
 
