@@ -37,6 +37,8 @@ dim shared SteamAPI_ISteamUserStats_SetAchievement as function(byval self as ISt
 dim shared SteamAPI_ISteamUserStats_ClearAchievement as function(byval self as ISteamUserStats ptr, byval name as const zstring ptr) as boolint
 ' S_API bool SteamAPI_ISteamUserStats_StoreStats( ISteamUserStats* self );
 dim shared SteamAPI_ISteamUserStats_StoreStats as function(byval self as ISteamUserStats ptr) as boolint
+' S_API bool SteamAPI_ISteamUserStats_IndicateAchievementProgress( ISteamUserStats* self, const char * pchName, uint32 nCurProgress, uint32 nMaxProgress );
+dim shared SteamAPI_ISteamUserStats_IndicateAchievementProgress as function(byval self as ISteamUserStats ptr, byval name as const zstring ptr, progress as uinteger, max_progress as uinteger) as boolint
 
 
 dim shared steam_user_stats as ISteamUserStats ptr
@@ -92,6 +94,7 @@ function initialize_steam() as boolean
     MUSTLOAD(steamworks_handle, SteamAPI_ISteamUserStats_SetAchievement)
     MUSTLOAD(steamworks_handle, SteamAPI_ISteamUserStats_ClearAchievement)
     MUSTLOAD(steamworks_handle, SteamAPI_ISteamUserStats_StoreStats)
+    MUSTLOAD(steamworks_handle, SteamAPI_ISteamUserStats_IndicateAchievementProgress)
     
     if SteamAPI_Init() = false then
         debug "unable to initialize steamworks"
@@ -153,6 +156,14 @@ sub clear_achievement(id as string)
     end if
 end sub
 
+sub notify_achievement_progress(id as string, progress as integer, max_progress as integer)
+    if steam_available() = false then return
+
+    if SteamAPI_ISteamUserStats_IndicateAchievementProgress(steam_user_stats, id, progress, max_progress) = false then
+        debug "unable to indicate achievement progress: " & id
+    end if
+end sub
+
 #macro CALLBACK_HANDLER(typ, handler)
     case typ.k_iCallback
         debug "Steam: " & #typ
@@ -194,7 +205,7 @@ sub run_steam_frame()
         if callback.m_iCallback = 703 then
 	' 	{
 	' 		SteamAPICallCompleted_t *pCallCompleted = (SteamAPICallCompleted_t *)callback.
-            dim pCallCompleted as SteamAPICallCompleted_t ptr = @callback
+            dim pCallCompleted as SteamAPICallCompleted_t ptr = cast(SteamAPICallCompleted_t ptr, @callback)
 	' 		void *pTmpCallResult = malloc( pCallback->m_cubParam );
             dim pTmpCallResult as any ptr = allocate(pCallCompleted->m_cubParam)
 	' 		bool bFailed;
@@ -239,6 +250,8 @@ end sub
 sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
     debug "On User Stats Received"
     clear_achievement("ACH_WIN_ONE_GAME")
+    clear_achievement("ACH_HEAVY_FIRE")
+    clear_achievement("ACH_TRAVEL_FAR_ACCUM")
 
-    achieve_timer = 1000
+    ' achieve_timer = 1000
 end sub

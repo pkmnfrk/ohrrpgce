@@ -34,5 +34,6 @@ end type
 declare sub load_achievements(file_path as string)
 declare sub free_achievements()
 declare sub achievement_tag_notify(id as integer, state as boolean)
+declare sub achievement_evaluate_tags()
 
 #endif

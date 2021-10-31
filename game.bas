@@ -3038,6 +3038,7 @@ END FUNCTION
 SUB tag_updates (npc_visibility as bool=YES)
  IF npc_visibility THEN visnpc
  update_menu_items
+ achievement_evaluate_tags
 END SUB
 
 ' Updates which menu items are enabled (for any reason, not just tags)
