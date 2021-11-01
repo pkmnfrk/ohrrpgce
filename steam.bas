@@ -2,6 +2,15 @@
 #include "steam.bi"
 #include "steam_internal.bi"
 
+' #define DEBUG_STEAM
+
+#ifdef DEBUG_STEAM
+declare sub steam_debug(msg as string)
+#else
+#define steam_debug(x)
+#endif
+
+
 dim shared steamworks_handle as any ptr = null
 
 ' basic init/deinit
@@ -46,7 +55,7 @@ dim shared steam_user_stats as ISteamUserStats ptr
 #macro MUSTLOAD(hfile, procedure)
 	procedure = dylibsymbol(hfile, #procedure)
 	if procedure = NULL then
-        debug "Was not able to find " & #procedure
+        steam_debug("Was not able to find " & #procedure)
         ' do this instead of uninitialize_steam(), since it assumes we succeeded in initializing
         dylibfree(hFile)
         hFile = null
@@ -76,7 +85,7 @@ function initialize_steam() as boolean
 
     steamworks_handle = dylibload(STEAM_LIB)
     if steamworks_handle = null then
-        debug "Was not able to open " STEAM_FULL_FNAME
+        steam_debug("Was not able to open " STEAM_FULL_FNAME)
         return false
     end if
 
@@ -97,14 +106,14 @@ function initialize_steam() as boolean
     MUSTLOAD(steamworks_handle, SteamAPI_ISteamUserStats_IndicateAchievementProgress)
     
     if SteamAPI_Init() = false then
-        debug "unable to initialize steamworks"
+        steam_debug("unable to initialize steamworks")
         uninitialize_Steam()
         return false
     end if
 
     ' todo: is this necessary?
     ' if SteamAPI_RestartAppIfNecessary( ourAppId ) <> false then
-    '     debug "Steam seems to want to restart the application for some reason"
+    '     steam_debug("Steam seems to want to restart the application for some reason")
     ' end if
 
     SteamAPI_ManualDispatch_Init()
@@ -114,10 +123,10 @@ function initialize_steam() as boolean
     steam_user_stats = SteamAPI_SteamUserStats_v012()
 
     if steam_user_stats = null then
-        debug "Unable to obtain user stats object"
+        steam_debug("Unable to obtain user stats object")
     else
         if SteamAPI_ISteamUserStats_RequestCurrentStats(steam_user_stats) = false then
-            debug "Unable to request current stats"
+            steam_debug("Unable to request current stats")
         end if
     end if
 
@@ -140,10 +149,10 @@ sub reward_achievement(id as string)
     if steam_available() = false then return
 
     if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, id) = false then
-        debug "steam: unable to reward achievement: " & id
+        steam_debug("unable to reward achievement: " & id)
     else
         if SteamAPI_ISteamUserStats_StoreStats(steam_user_stats) = false then
-            debug "unable to persist stats"
+            steam_debug("unable to persist stats")
         end if
     end if
 end sub
@@ -152,7 +161,7 @@ sub clear_achievement(id as string)
     if steam_available() = false then return
 
     if SteamAPI_ISteamUserStats_ClearAchievement(steam_user_stats, id) = false then
-        debug "unable to clear an achievement: " & id
+        steam_debug("unable to clear an achievement: " & id)
     end if
 end sub
 
@@ -160,21 +169,20 @@ sub notify_achievement_progress(id as string, progress as integer, max_progress 
     if steam_available() = false then return
 
     if SteamAPI_ISteamUserStats_IndicateAchievementProgress(steam_user_stats, id, progress, max_progress) = false then
-        debug "unable to indicate achievement progress: " & id
+        steam_debug("unable to indicate achievement progress: " & id)
     end if
 end sub
 
 #macro CALLBACK_HANDLER(typ, handler)
     case typ.k_iCallback
-        debug "Steam: " & #typ
-        debug "message length: " & callback.m_cubParam
+        steam_debug(#typ & ", message length: " & callback.m_cubParam)
         dim typ##Msg as typ ptr = cast(typ ptr, callback.m_pubParam)
         handler(typ##Msg)
 #endmacro
 
 #macro IGNORE(id)
     case id
-        debug "Ignored Steam id: " & id
+        ' steam_debug("Ignored Steam id: " & id)
 #endmacro
 
 dim shared achieve_timer as integer = -1
@@ -189,7 +197,7 @@ sub run_steam_frame()
         end if
     end if
 
-    ' debug "run_steam_frame"
+    ' steam_debug("run_steam_frame")
 
     ' HSteamPipe hSteamPipe = SteamAPI_GetHSteamPipe(); // See also SteamGameServer_GetHSteamPipe()
     dim hSteamPipe as HSteamPipe = SteamAPI_GetHSteamPipe()
@@ -215,7 +223,7 @@ sub run_steam_frame()
 	' 		{
 	' 			// Dispatch the call result to the registered handler(s) for the
 	' 			// call identified by pCallCompleted->m_hAsyncCall
-                debug "Steam: Call Completed handler"
+                steam_debug("Call Completed handler")
 	' 		}
             end if
 	' 		free( pTmpCallResult );
@@ -236,8 +244,9 @@ sub run_steam_frame()
                 IGNORE(501)
                 IGNORE(502) ' favorites list changed
                 IGNORE(1006)
+                IGNORE(1102) ' user stats stored
                 case else
-                    debug "Steam: Some other handler: " & callback.m_iCallback
+                    steam_debug("Some other handler: " & callback.m_iCallback)
             end select
 	' 	}
         end if
@@ -248,10 +257,21 @@ sub run_steam_frame()
 end sub
 
 sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
-    debug "On User Stats Received"
+    steam_debug("On User Stats Received")
+
+    ' unsure if we actually need to do anything in response to this.
+    ' TODO: buffer any achievement activity that happens before this call?
+    
+    ' this is for debugging purposes, obviously
     clear_achievement("ACH_WIN_ONE_GAME")
-    clear_achievement("ACH_HEAVY_FIRE")
+    clear_achievement("ACH_WIN_100_GAMES")
     clear_achievement("ACH_TRAVEL_FAR_ACCUM")
 
     ' achieve_timer = 1000
 end sub
+
+#ifdef DEBUG_STEAM
+sub steam_debug(msg as string)
+    debug "steam: " & msg
+end sub
+#endif
