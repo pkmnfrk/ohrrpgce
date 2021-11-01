@@ -22,20 +22,11 @@ type AchievementDefinition
     declare destructor
 end type
 
-type AchievementProgress
-    id as uinteger
-    value as uint64
-    seen_tags as integer vector
-
-    declare constructor
-    declare destructor
-end type
-
-declare sub load_achievements(file_path as string)
-declare sub free_achievements()
-
-#ifdef IS_GAME
-declare sub achievement_evaluate_tags()
-#endif
+declare sub achievement_definitions_load(file_path as string)
+declare sub achievement_definitions_free()
+declare function achievement_definitions_count() as integer
+declare function achievement_definitions_get_by_index(index as integer) as AchievementDefinition ptr
+declare function achievement_definitions_get_by_id(id as integer) as AchievementDefinition ptr
+declare function achievement_definitions_new() as AchievementDefinition ptr
 
 #endif

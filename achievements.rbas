@@ -1,24 +1,13 @@
 #include "achievements.bi"
 #include "reload.bi"
-#include "steam.bi"
-
-#ifdef IS_GAME ' this is guarded because this stuff is only used at runtime
-#include "moresubs.bi"
-#endif
 
 ' uncomment to enable debug output
-' #define DEBUG_ACHIEVEMENTS
+#define DEBUG_ACHIEVEMENTS
 
 using Reload
 
 ' Local functions
 declare function type_name_to_enum(name as string) as AchievementType
-
-#ifdef IS_GAME
-declare function mark_tag_as_seen(id as integer, tag as integer) as boolean
-declare function is_complete(id as integer) as boolean
-declare function needs_progress_update(id as integer) as boolean
-#endif
 
 #ifdef DEBUG_ACHIEVEMENTS
 declare sub ach_debug(msg as string)
@@ -27,14 +16,12 @@ declare sub ach_debug(msg as string)
 #endif
 
 dim shared next_id as integer
-redim shared achievements(0) as AchievementDefinition
-redim shared achievement_progress(0) as AchievementProgress
-dim shared rewarded_achievements as integer vector
+redim shared achievements() as AchievementDefinition
 
 ' -- public api --
 
-sub load_achievements(file_path as string)
-    free_achievements
+sub achievement_definitions_load(file_path as string)
+    achievement_definitions_free
 
     DIM doc as Docptr
     doc = LoadDocument(file_path, LoadOptions.optIgnoreMissing)
@@ -47,12 +34,14 @@ sub load_achievements(file_path as string)
     end if
 
     dim num_achievements as integer = CountChildren(cheevos, "achievement")
-    #IFDEF DEBUG_ACHIEVEMENTS
-    ach_debug("loading " & num_achievements & " from disk")
-    #endif
 
-    redim achievements(num_achievements)
-    redim achievement_progress(num_achievements)
+    ach_debug("loading " & num_achievements & " from disk")
+
+    if num_achievements = 0 then
+        erase achievements
+    else
+        redim achievements(num_achievements - 1)
+    end if
 
     dim i as integer = 0
 
@@ -84,37 +73,40 @@ sub load_achievements(file_path as string)
     FreeDocument(doc)
 end sub
 
-sub free_achievements
-    redim achievements(0)
-    redim achievement_progress(0)
+sub achievement_definitions_free
+    erase achievements
 
     next_id = 1
 end sub
 
-#ifdef IS_GAME
-sub achievement_evaluate_tags()
-    for id as integer = 0 to ubound(achievements) - 1
-        with achievements(id)
-            ach_debug("evaluating '" & .name & "'")
-            for t as integer = 0 to v_len(.tags) - 1
-                dim tag as integer = .tags[t]
+function achievement_definitions_count() as integer
+    ach_debug("achievement_definitions_count")
+    return ubound(achievements) - lbound(achievements) + 1
+end function
 
-                if mark_tag_as_seen(id, tag) then
-                    if is_complete(id) then
-                        ' reward the achievement
-                        ach_debug("rewarding '" & .name & "'")
-                        reward_achievement .steam_id
-                    elseif needs_progress_update(id) then
-                        ' ping user with progress
-                        ach_debug("notifying progress on '" & .name & "'")
-                        notify_achievement_progress .steam_id, achievement_progress(id).value, .max_value
-                    end if
-                end if
-            next
-        end with
+function achievement_definitions_get_by_index(index as integer) as AchievementDefinition ptr
+    ach_debug("achievement_definitions_get_by_index")
+    if index < 0 orelse index >= ubound(achievements) then return null
+
+    return @achievements(index)
+end function
+
+function achievement_definitions_get_by_id(id as integer) as AchievementDefinition ptr
+    for i as integer = 0 to ubound(achievements) - 1
+        if achievements(i).id = id then return @achievements(i)
     next
-end sub
-#endif
+    return null
+end function
+
+function achievement_definitions_new() as AchievementDefinition ptr
+    redim preserve achievements(ubound(achievements))
+    dim new_achievement as AchievementDefinition ptr = @achievements(ubound(achievements) - 1)
+    new_achievement->id = next_id
+    next_id += 1
+
+    return new_achievement
+end function
+
 
 ' -- members for AchievementDefinition --
 
@@ -132,18 +124,6 @@ end constructor
 
 destructor AchievementDefinition
     v_free tags
-end destructor
-
-' -- members for AchievementProgress --
-
-constructor AchievementProgress
-    id = 0
-    value = 0
-    v_new seen_tags
-end constructor
-
-destructor AchievementProgress
-    v_free seen_tags
 end destructor
 
 ' -- internal helpers --
@@ -172,69 +152,8 @@ function type_enum_to_name(typ as AchievementType) as string
     end select
 end function
 
-#ifdef IS_GAME
-function mark_tag_as_seen(id as integer, tag as integer) as boolean
-    with achievements(id)
-        dim is_triggered as boolean = istag(tag)
-        dim ix as integer = v_find(achievement_progress(id).seen_tags, tag)
-        ach_debug("Relevant tag " & tag & " is " & is_triggered)
-        if is_triggered and ix = -1 then
-            ach_debug("This means that is is now on!")
-            v_append achievement_progress(id).seen_tags, tag
-            if .achievement_type = AchievementType.count and achievement_progress(id).value < .max_value then
-                achievement_progress(id).value += 1
-            end if
-            return true
-        elseif .latching = false andalso is_triggered = false andalso ix <> -1 then
-            ach_debug("This means that is is now off!")
-            v_remove achievement_progress(id).seen_tags, tag
-            ' note: disabling a tag does _not_ decrement the value
-            ' for this reason, we return false since the achievement state didn't really change
-            return false
-        end if
-    end with
-
-    return false
-end function
-
-function is_complete(id as integer) as boolean
-    dim achievement as AchievementDefinition ptr = @achievements(id)
-    dim progress as AchievementProgress ptr = @achievement_progress(id)
-
-    select case achievement->achievement_type
-        case AchievementType.flag
-            for ix as integer = 0 to v_len(achievement->tags) - 1
-                dim tag as integer = achievement->tags[ix]
-                if v_find(progress->seen_tags, tag) = -1 then
-                    ach_debug(":( '" & achievement->name & "' is not complete because tag " & tag & " is not set")
-                    return false
-                end if
-            next
-        case AchievementType.count
-            if progress->value < achievement->max_value then
-                ach_debug(":( '" & achievement->name & "' is not complete because value " & progress->value & " is less than " & achievement->max_value)
-                return false
-            end if
-    end select
-    ach_debug(":D '" & achievement->name & "' is complete!")
-    return true
-end function
-
-' call this _after_ checking is_complete!
-function needs_progress_update(id as integer) as boolean
-    dim achievement as AchievementDefinition ptr = @achievements(id)
-    dim progress as AchievementProgress ptr = @achievement_progress(id)
-
-    return achievement->achievement_type = AchievementType.count _
-        andalso achievement->progress_interval > 0 _
-        andalso progress->value > 0 _
-        andalso (progress->value mod achievement->progress_interval) = 0
-end function
-
-#endif
-
 #ifdef DEBUG_ACHIEVEMENTS
-sub ach_debug(msg as string)
+private sub ach_debug(msg as string)
     debug "achievements: " & msg
 end sub
 #endif

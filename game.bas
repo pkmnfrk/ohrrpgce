@@ -30,7 +30,7 @@
 #include "bcommon.bi"
 #include "steam.bi"
 #include "achievements.bi"
-
+#include "achievements_runtime.bi"
 
 'local subs and functions
 DECLARE SUB checkdoors ()
@@ -212,7 +212,7 @@ set_app_dir
  log_dir = CURDIR & SLASH
 #ENDIF
 
-'set_OPEN_hook @hook_all_files  'For debugging
+set_OPEN_hook @hook_all_files  'For debugging
 
 'Once log_dir is set, can create debug log.
 external_log "starting debug log..."
@@ -635,8 +635,10 @@ SetupGameSlices
 'This is called BEFORE the loop, because when the game is quit or a save is loaded, this will be called again there
 reset_game_state
 
+debug "test"
+
 'Load achievement data
-load_achievements workingdir & SLASH & "achievements.reld"
+achievement_definitions_load workingdir & SLASH & "achievements.reld"
 
 '===================== Stuff reinitialised each new/load-game ==================
 
@@ -3038,7 +3040,7 @@ END FUNCTION
 SUB tag_updates (npc_visibility as bool=YES)
  IF npc_visibility THEN visnpc
  update_menu_items
- achievement_evaluate_tags
+ achievements_evaluate_tags
 END SUB
 
 ' Updates which menu items are enabled (for any reason, not just tags)
