@@ -1,17 +1,24 @@
 #include "achievements.bi"
-#include "moresubs.bi"
 #include "reload.bi"
 #include "steam.bi"
 
+#ifdef IS_GAME ' this is guarded because this stuff is only used at runtime
+#include "moresubs.bi"
+#endif
+
+' uncomment to enable debug output
 ' #define DEBUG_ACHIEVEMENTS
 
 using Reload
 
 ' Local functions
 declare function type_name_to_enum(name as string) as AchievementType
+
+#ifdef IS_GAME
 declare function mark_tag_as_seen(id as integer, tag as integer) as boolean
 declare function is_complete(id as integer) as boolean
 declare function needs_progress_update(id as integer) as boolean
+#endif
 
 #ifdef DEBUG_ACHIEVEMENTS
 declare sub ach_debug(msg as string)
@@ -22,6 +29,7 @@ declare sub ach_debug(msg as string)
 dim shared next_id as integer
 redim shared achievements(0) as AchievementDefinition
 redim shared achievement_progress(0) as AchievementProgress
+dim shared rewarded_achievements as integer vector
 
 ' -- public api --
 
@@ -49,7 +57,9 @@ sub load_achievements(file_path as string)
     dim i as integer = 0
 
     READNODE cheevos
-        WITHNODE cheevos."achievement" as cheevo   
+        next_id = cheevos."next_id".integer
+
+        WITHNODE cheevos."achievement" as cheevo
             ach_debug("loading achievement #" & i)
             with achievements(i)
                 .id = GetInteger(cheevo)
@@ -81,6 +91,7 @@ sub free_achievements
     next_id = 1
 end sub
 
+#ifdef IS_GAME
 sub achievement_evaluate_tags()
     for id as integer = 0 to ubound(achievements) - 1
         with achievements(id)
@@ -103,6 +114,7 @@ sub achievement_evaluate_tags()
         end with
     next
 end sub
+#endif
 
 ' -- members for AchievementDefinition --
 
@@ -160,6 +172,7 @@ function type_enum_to_name(typ as AchievementType) as string
     end select
 end function
 
+#ifdef IS_GAME
 function mark_tag_as_seen(id as integer, tag as integer) as boolean
     with achievements(id)
         dim is_triggered as boolean = istag(tag)
@@ -217,6 +230,8 @@ function needs_progress_update(id as integer) as boolean
         andalso progress->value > 0 _
         andalso (progress->value mod achievement->progress_interval) = 0
 end function
+
+#endif
 
 #ifdef DEBUG_ACHIEVEMENTS
 sub ach_debug(msg as string)

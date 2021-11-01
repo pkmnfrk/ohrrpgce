@@ -33,6 +33,9 @@ end type
 
 declare sub load_achievements(file_path as string)
 declare sub free_achievements()
+
+#ifdef IS_GAME
 declare sub achievement_evaluate_tags()
+#endif
 
 #endif
