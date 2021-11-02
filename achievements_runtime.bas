@@ -16,11 +16,11 @@
 
 
 ' uncomment to enable debug output
-#define DEBUG_ACHIEVEMENTS
+' #define DEBUG_ACHIEVEMENTS
 
 
 declare function mark_tag_as_seen(index as integer, tag as integer) as boolean
-declare function is_complete(index as integer) as boolean
+declare function needs_rewarding(index as integer) as boolean
 declare function needs_progress_update(index as integer) as boolean
 
 #ifdef DEBUG_ACHIEVEMENTS
@@ -32,22 +32,26 @@ declare sub ach_debug(msg as string) ' this is actually defined in achievements.
 
 ' -- globals --
 redim shared achievement_progress() as AchievementProgress
-'dim shared achievement_progress as AchievementProgress ptr vector
-dim shared rewarded_achievements as integer vector
+dim shared rewarded_achievements as uinteger vector
 
 ' -- public api --
 
 sub achievements_evaluate_tags()
-    for index as integer = 0 to ubound(achievement_progress) - 1
-        with *achievement_definitions_get_by_index(index)
+    ach_debug("achievements_evaluate_tags")
+    for index as integer = 0 to ubound(achievement_progress)
+        ach_debug("evaluating #" & index)
+        with achievement_definitions_get_by_index(index)
+            if v_find(rewarded_achievements, .id) <> -1 then continue for ' ignore rewarded achievements
+
             ach_debug("evaluating '" & .name & "'")
             for t as integer = 0 to v_len(.tags) - 1
                 dim tag as integer = .tags[t]
 
                 if mark_tag_as_seen(index, tag) then
-                    if is_complete(index) then
+                    if needs_rewarding(index) then
                         ' reward the achievement
                         ach_debug("rewarding '" & .name & "'")
+                        v_append rewarded_achievements, .id
                         reward_achievement .steam_id
                     elseif needs_progress_update(index) then
                         ' ping user with progress
@@ -68,6 +72,12 @@ sub achievements_reset
     else
         redim achievement_progress(count - 1)
     end if
+
+    if rewarded_achievements <> null then
+        v_free rewarded_achievements
+    end if
+
+    v_new rewarded_achievements
 end sub
 
 sub achievements_load(node as Reload.NodePtr)
@@ -75,7 +85,13 @@ sub achievements_load(node as Reload.NodePtr)
 
     ach_debug("loading achievement data")
 
-    ' TODO: load data from save file
+    for index as integer = 0 to ubound(achievement_progress)
+        achievement_progress(index).id = achievement_definitions_get_by_index(index).id
+    next
+
+    if node <> null then
+        ' TODO: load data from save file
+    end if
 end sub
 
 sub achievements_save(node as Reload.NodePtr)
@@ -87,19 +103,23 @@ end sub
 ' -- members for AchievementProgress --
 
 constructor AchievementProgress
-    id = 0
-    value = 0
+    ach_debug("AchivementProgress constructor")
     v_new seen_tags
 end constructor
 
 destructor AchievementProgress
+    ach_debug("AchivementProgress destructor")
     v_free seen_tags
 end destructor
 
 ' -- internal functions --
 
-function mark_tag_as_seen(index as integer, tag as integer) as boolean
-    with *achievement_definitions_get_by_index(index)
+private function mark_tag_as_seen(index as integer, tag as integer) as boolean
+    ach_debug("mark_tag_as_seen")
+    with achievement_definitions_get_by_index(index)
+        ach_debug("Achievement #" & index & " is already rewarded: " & (v_find(rewarded_achievements, .id) <> -1))
+        if v_find(rewarded_achievements, .id) <> -1 then return false ' ignore rewarded achievements
+
         dim is_triggered as boolean = istag(tag)
         dim ix as integer = v_find(achievement_progress(index).seen_tags, tag)
         ach_debug("Relevant tag " & tag & " is " & is_triggered)
@@ -122,38 +142,47 @@ function mark_tag_as_seen(index as integer, tag as integer) as boolean
     return false
 end function
 
-function is_complete(index as integer) as boolean
-    dim achievement as AchievementDefinition ptr = achievement_definitions_get_by_index(index)
-    dim progress as AchievementProgress ptr = @achievement_progress(index)
+private function needs_rewarding(index as integer) as boolean
+    ach_debug("needs_rewarding")
+    dim byref achievement as AchievementDefinition = achievement_definitions_get_by_index(index)
+    dim byref progress as AchievementProgress = achievement_progress(index)
 
-    select case achievement->achievement_type
+    if v_find(rewarded_achievements, achievement.id) <> -1 then return false 
+
+    select case achievement.achievement_type
         case AchievementType.flag
-            for ix as integer = 0 to v_len(achievement->tags) - 1
-                dim tag as integer = achievement->tags[ix]
-                if v_find(progress->seen_tags, tag) = -1 then
-                    ach_debug(":( '" & achievement->name & "' is not complete because tag " & tag & " is not set")
+            for ix as integer = 0 to v_len(achievement.tags) - 1
+                dim tag as integer = achievement.tags[ix]
+                if v_find(progress.seen_tags, tag) = -1 then
+                    ach_debug(":( '" & achievement.name & "' is not complete because tag " & tag & " is not set")
                     return false
                 end if
             next
         case AchievementType.count
-            if progress->value < achievement->max_value then
-                ach_debug(":( '" & achievement->name & "' is not complete because value " & progress->value & " is less than " & achievement->max_value)
+            if progress.value < achievement.max_value then
+                ach_debug(":( '" & achievement.name & "' is not complete because value " & progress.value & " is less than " & achievement.max_value)
                 return false
             end if
     end select
-    ach_debug(":D '" & achievement->name & "' is complete!")
+    ach_debug(":D '" & achievement.name & "' is complete!")
     return true
 end function
 
 ' call this _after_ checking is_complete!
-function needs_progress_update(index as integer) as boolean
-    dim achievement as AchievementDefinition ptr = achievement_definitions_get_by_index(index)
-    dim progress as AchievementProgress ptr = @achievement_progress(index)
+private function needs_progress_update(index as integer) as boolean
+    ach_debug("needs_progress_update(" & index & ")")
+    dim byref achievement as AchievementDefinition = achievement_definitions_get_by_index(index)
+    dim byref progress as AchievementProgress = achievement_progress(index)
 
-    return achievement->achievement_type = AchievementType.count _
-        andalso achievement->progress_interval > 0 _
-        andalso progress->value > 0 _
-        andalso (progress->value mod achievement->progress_interval) = 0
+    ach_debug((achievement.achievement_type = AchievementType.count) & _
+        ", " & (achievement.progress_interval > 0) & _
+        ", " & (progress.value > 0) & _
+        ", " & (progress.value mod achievement.progress_interval) _
+    )
+    return achievement.achievement_type = AchievementType.count _
+        andalso achievement.progress_interval > 0 _
+        andalso progress.value > 0 _
+        andalso (progress.value mod achievement.progress_interval) = 0
 end function
 
 #ifdef DEBUG_ACHIEVEMENTS

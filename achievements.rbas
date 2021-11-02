@@ -2,7 +2,7 @@
 #include "reload.bi"
 
 ' uncomment to enable debug output
-#define DEBUG_ACHIEVEMENTS
+' #define DEBUG_ACHIEVEMENTS
 
 using Reload
 
@@ -74,6 +74,7 @@ sub achievement_definitions_load(file_path as string)
 end sub
 
 sub achievement_definitions_free
+    ach_debug("achievement_definitions_free")
     erase achievements
 
     next_id = 1
@@ -84,24 +85,25 @@ function achievement_definitions_count() as integer
     return ubound(achievements) - lbound(achievements) + 1
 end function
 
-function achievement_definitions_get_by_index(index as integer) as AchievementDefinition ptr
-    ach_debug("achievement_definitions_get_by_index")
-    if index < 0 orelse index >= ubound(achievements) then return null
+function achievement_definitions_get_by_index(index as integer) byref as AchievementDefinition
+    ach_debug("achievement_definitions_get_by_index(" & index & ")")
 
-    return @achievements(index)
+    ERROR_IF(index < 0 orelse index > ubound(achievements), "Invalid achievement index, " & index, byval null)
+
+    return achievements(index)
 end function
 
-function achievement_definitions_get_by_id(id as integer) as AchievementDefinition ptr
-    for i as integer = 0 to ubound(achievements) - 1
-        if achievements(i).id = id then return @achievements(i)
+function achievement_definitions_get_by_id(id as integer) byref as AchievementDefinition
+    for i as integer = 0 to ubound(achievements)
+        if achievements(i).id = id then return achievements(i)
     next
-    return null
+    ERROR_IF(true, "Invalid achievement id, " & id, byval null)
 end function
 
-function achievement_definitions_new() as AchievementDefinition ptr
+function achievement_definitions_new() byref as AchievementDefinition
     redim preserve achievements(ubound(achievements))
-    dim new_achievement as AchievementDefinition ptr = @achievements(ubound(achievements) - 1)
-    new_achievement->id = next_id
+    dim byref new_achievement as AchievementDefinition = achievements(ubound(achievements) - 1)
+    new_achievement.id = next_id
     next_id += 1
 
     return new_achievement
@@ -111,18 +113,12 @@ end function
 ' -- members for AchievementDefinition --
 
 constructor AchievementDefinition
-    id = 0
-    name = ""
-    achievement_type = AchievementType.flag
-    max_value = 0
-    progress_interval = 0
-    latching = false
-    steam_id = ""
-
+    ach_debug("AchivementProgress constructor")
     v_new tags
 end constructor
 
 destructor AchievementDefinition
+    ach_debug("AchivementDefinition destructor")
     v_free tags
 end destructor
 

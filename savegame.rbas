@@ -307,7 +307,7 @@ SUB gamestate_from_reload(byval node as Reload.NodePtr)
   gamestate_vehicle_from_reload   node."vehicle".warn.ptr
   'Added later
   gamestate_slices_from_reload    node."slices".ptr
-  achievements_load               node."achievements".ptr
+  achievements_load               node."achievements".default(null).ptr
  END READNODE
 END SUB
 

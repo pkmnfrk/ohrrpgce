@@ -727,6 +727,7 @@ ELSEIF load_slot >= 0 THEN
 ELSE
  'New game
  refresh_purchases()
+ achievements_reset()
  'This fadeout means that resetgame fades out the screen although gameover doesn't
  fadeout uilook(uiFadeoutNewGame)
  'Clear the screen so that there's no garbage shown behind the prompt to rename the starting hero

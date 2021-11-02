@@ -4,8 +4,8 @@
 #include "reload.bi"
 
 type AchievementProgress
-    id as uinteger
-    value as uint64
+    id as uinteger = 0
+    value as uint64 = 0
     seen_tags as integer vector
 
     declare constructor

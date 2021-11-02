@@ -145,7 +145,7 @@ function steam_available() as boolean
     return steamworks_handle <> null
 end function
 
-sub reward_achievement(id as string)
+sub reward_achievement(id as const string)
     if steam_available() = false then return
 
     if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, id) = false then
@@ -165,7 +165,7 @@ sub clear_achievement(id as string)
     end if
 end sub
 
-sub notify_achievement_progress(id as string, progress as integer, max_progress as integer)
+sub notify_achievement_progress(id as const string, progress as integer, max_progress as integer)
     if steam_available() = false then return
 
     if SteamAPI_ISteamUserStats_IndicateAchievementProgress(steam_user_stats, id, progress, max_progress) = false then
