@@ -863,6 +863,7 @@ SUB gamestate_to_reload(byval node as Reload.NodePtr)
  gamestate_inventory_to_reload node
  gamestate_shops_to_reload node
  gamestate_vehicle_to_reload node
+ achievements_save node
 END SUB
 
 SUB gamestate_state_to_reload(byval parent as Reload.NodePtr)

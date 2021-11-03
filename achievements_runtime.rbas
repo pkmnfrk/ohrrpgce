@@ -15,8 +15,10 @@
 ' IDs (in the type-member sense) are _not_ used to match achievements. These IDs are only for save data
 
 
-' uncomment to enable debug output
+' uncomment to enable spammy debug output
 ' #define DEBUG_ACHIEVEMENTS
+
+using Reload
 
 
 declare function mark_tag_as_seen(index as integer, tag as integer) as boolean
@@ -90,14 +92,65 @@ sub achievements_load(node as Reload.NodePtr)
     next
 
     if node <> null then
-        ' TODO: load data from save file
+        READNODE node
+            WITHNODE node."achievement" as achievement
+                dim progress as AchievementProgress ptr = null
+                dim id as integer = GetInteger(achievement)
+
+                for index as integer = 0 to ubound(achievement_progress)
+                    if achievement_progress(index).id = id then
+                        ach_debug("progress in slot " & index & " has index " & id)
+                        progress = @achievement_progress(index)
+                        exit for
+                    else
+                        ach_debug("progress in slot " & index & " has wrong index")
+                    end if 
+                next
+
+                if progress <> null then
+                    progress->value = achievement."value".integer
+                    ach_debug("loaded progress of " & progress->value & " for id " & id)
+                    dim tag as Nodeptr = FirstChild(achievement."tags".ptr, "tag")
+                    while tag <> null
+                        dim t as integer = GetInteger(tag)
+                        ach_debug("noted tag " & t & " for id " & id)
+                        v_append progress->seen_tags, t
+                        tag = NextSibling(tag, "tag")
+                    wend
+                else
+                    ach_debug("Encountered data for missing achievement with id " & id & ". Discarding")
+                end if
+            END WITHNODE
+        END READNODE
     end if
 end sub
 
-sub achievements_save(node as Reload.NodePtr)
-
+sub achievements_save(node as NodePtr)
     ach_debug("saving achievement data")
-    ' TODO: persist data to save file
+    
+    if ubound(achievement_progress) < 0 then
+        ach_debug("no achievements to save")
+        return
+    end if
+
+    dim achievements as NodePtr = AppendChildNode(node, "achievements")
+
+    for index as integer = 0 to ubound(achievement_progress)
+        with achievement_progress(index)
+            ach_debug("State of achievement id " & .id & ": Value=" & .value & ", tags=" & v_len(.seen_tags))
+            if .value <= 0 andalso v_len(.seen_tags) <= 0 then continue for
+
+            dim achievement as NodePtr = AppendChildNode(achievements, "achievement")
+            SetContent(achievement, .id)
+
+            AppendChildNode(achievement, "value", .value)
+
+            dim tags as NodePtr = AppendChildNode(achievement, "tags")
+            for t as integer = 0 to v_len(.seen_tags) - 1
+                AppendChildNode(tags, "tag", .seen_tags[t])
+            next
+        end with
+    next
 end sub
 
 ' -- members for AchievementProgress --

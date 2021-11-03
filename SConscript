@@ -1159,7 +1159,7 @@ edit_modules = ['custom',
 
 # (.bas files only) 
 game_modules = ['game',
-                'achievements_runtime',
+                'achievements_runtime.rbas',
                 'bmod.rbas',
                 'bmodsubs',
                 'menustuf.rbas',
