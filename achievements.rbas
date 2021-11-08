@@ -16,6 +16,7 @@ declare sub ach_debug(msg as string)
 #endif
 
 dim shared next_id as integer
+dim shared permanent as boolean
 redim shared achievements() as AchievementDefinition
 
 ' -- public api --
@@ -47,6 +48,7 @@ sub achievement_definitions_load(file_path as string)
 
     READNODE cheevos
         next_id = cheevos."next_id".integer
+        permanent = cheevos."permanent".exists
 
         WITHNODE cheevos."achievement" as cheevo
             ach_debug("loading achievement #" & i)
@@ -78,6 +80,7 @@ sub achievement_definitions_free
     erase achievements
 
     next_id = 1
+    permanent = false
 end sub
 
 function achievement_definitions_count() as integer
@@ -100,15 +103,9 @@ function achievement_definitions_get_by_id(id as integer) byref as AchievementDe
     ERROR_IF(true, "Invalid achievement id, " & id, byval null)
 end function
 
-function achievement_definitions_new() byref as AchievementDefinition
-    redim preserve achievements(ubound(achievements))
-    dim byref new_achievement as AchievementDefinition = achievements(ubound(achievements) - 1)
-    new_achievement.id = next_id
-    next_id += 1
-
-    return new_achievement
+function achievement_definitions_is_permanent() as boolean
+    return permanent
 end function
-
 
 ' -- members for AchievementDefinition --
 

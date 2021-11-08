@@ -27,6 +27,6 @@ declare sub achievement_definitions_free()
 declare function achievement_definitions_count() as integer
 declare function achievement_definitions_get_by_index(index as integer) byref as AchievementDefinition
 declare function achievement_definitions_get_by_id(id as integer) byref as AchievementDefinition
-declare function achievement_definitions_new() byref as AchievementDefinition
+declare function achievement_definitions_is_permanent() as boolean
 
 #endif
