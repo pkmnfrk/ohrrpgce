@@ -2,6 +2,7 @@
 #include "achievements.bi"
 #include "moresubs.bi"
 #include "steam.bi"
+#include "vbcompat.bi" 'for NOW
 
 ' -- achievements_runtime
 ' This file contains functionality related to implementing achievements during gameplay. This includes
@@ -10,7 +11,7 @@
 '
 ' Assumptions:
 ' * achievement definitions (achievements.rbas) have been loaded
-' * the indexes in achievement_progres match the indexes in the achievement definitions
+' * the indexes in achievement_progress match the indexes in the achievement definitions
 ' 
 ' IDs (in the type-member sense) are _not_ used to match achievements. These IDs are only for save data
 
@@ -35,17 +36,21 @@ declare sub ach_debug(msg as string) ' this is actually defined in achievements.
 
 ' -- globals --
 redim shared achievement_progress() as AchievementProgress
-dim shared rewarded_achievements as uinteger vector
+dim shared save_loaded as boolean = false
 
 ' -- public api --
 
 sub achievements_evaluate_tags()
     ach_debug("achievements_evaluate_tags")
+
+    if save_loaded = false then return 'don't evaluate anything before the save has actually been loaded
+
     for index as integer = 0 to ubound(achievement_progress)
         ach_debug("evaluating #" & index)
-        with achievement_definitions_get_by_index(index)
-            if v_find(rewarded_achievements, .id) <> -1 then continue for ' ignore rewarded achievements
 
+        if achievement_progress(index).rewarded then continue for ' ignore rewarded achievements
+
+        with achievement_definitions_get_by_index(index)
             ach_debug("evaluating '" & .name & "'")
             for t as integer = 0 to v_len(.tags) - 1
                 dim tag as integer = .tags[t]
@@ -66,25 +71,24 @@ sub achievements_evaluate_tags()
 end sub
 
 sub achievements_reset
+    if save_loaded = 0 then return ' not necessary if the save hasn't been loaded
+    
     dim count as integer = achievement_definitions_count()
     ach_debug("resetting achievement data to " & count)
+
     if count = 0 then
         erase achievement_progress
     else
         redim achievement_progress(count - 1)
     end if
-
-    if rewarded_achievements <> null then
-        v_free rewarded_achievements
-    end if
-
-    v_new rewarded_achievements
+    
+    save_loaded = false
 end sub
 
 sub achievements_load(node as Reload.NodePtr)
     achievements_reset
 
-    ach_debug("loading achievement data")
+    ach_debug("loading save game")
 
     for index as integer = 0 to ubound(achievement_progress)
         achievement_progress(index).id = achievement_definitions_get_by_index(index).id
@@ -108,7 +112,11 @@ sub achievements_load(node as Reload.NodePtr)
 
                 if progress <> null then
                     progress->value = achievement."value".integer
+                    progress->rewarded = achievement."rewarded".exists
+                    progress->rewarded_date = achievement."rewarded_date".double
+
                     ach_debug("loaded progress of " & progress->value & " for id " & id)
+                    ach_debug("loaded rewarded state of " & progress->rewarded & " for id " & id)
                     dim tag as Nodeptr = FirstChild(achievement."tags".ptr, "tag")
                     while tag <> null
                         dim t as integer = GetInteger(tag)
@@ -122,6 +130,9 @@ sub achievements_load(node as Reload.NodePtr)
             END WITHNODE
         END READNODE
     end if
+
+    ach_debug("done loading save game")
+    save_loaded = true
 end sub
 
 sub achievements_save(node as NodePtr)
@@ -137,12 +148,17 @@ sub achievements_save(node as NodePtr)
     for index as integer = 0 to ubound(achievement_progress)
         with achievement_progress(index)
             ach_debug("State of achievement id " & .id & ": Value=" & .value & ", tags=" & v_len(.seen_tags))
-            if .value <= 0 andalso v_len(.seen_tags) <= 0 then continue for
+            
+            if .value <= 0 andalso .rewarded = false andalso v_len(.seen_tags) <= 0 then continue for
 
-            dim achievement as NodePtr = AppendChildNode(achievements, "achievement")
-            SetContent(achievement, .id)
+            dim achievement as NodePtr = AppendChildNode(achievements, "achievement", .id)
 
             AppendChildNode(achievement, "value", .value)
+            if .rewarded then
+                AppendChildNode(achievement, "rewarded")
+                dim rewarded_date as NodePtr = AppendChildNode(achievement, "rewarded_date", .rewarded_date)
+                AppendChildNode(rewarded_date, "str", format_date(.rewarded_date))
+            end if
 
             dim tags as NodePtr = AppendChildNode(achievement, "tags")
             for t as integer = 0 to v_len(.seen_tags) - 1
@@ -168,10 +184,10 @@ end destructor
 
 private function mark_tag_as_seen(index as integer, tag as integer) as boolean
     ach_debug("mark_tag_as_seen")
-    with achievement_definitions_get_by_index(index)
-        ach_debug("Achievement #" & index & " is already rewarded: " & (v_find(rewarded_achievements, .id) <> -1))
-        if v_find(rewarded_achievements, .id) <> -1 then return false ' ignore rewarded achievements
 
+    if achievement_progress(index).rewarded then return false ' ignore rewarded achievements
+
+    with achievement_definitions_get_by_index(index)
         dim is_triggered as boolean = istag(tag)
         dim ix as integer = v_find(achievement_progress(index).seen_tags, tag)
         ach_debug("Relevant tag " & tag & " is " & is_triggered)
@@ -199,7 +215,7 @@ private function needs_rewarding(index as integer) as boolean
     dim byref achievement as AchievementDefinition = achievement_definitions_get_by_index(index)
     dim byref progress as AchievementProgress = achievement_progress(index)
 
-    if v_find(rewarded_achievements, achievement.id) <> -1 then return false 
+    if progress.rewarded then return false ' ignore rewarded achievements
 
     select case achievement.achievement_type
         case AchievementType.flag
@@ -241,6 +257,10 @@ private sub reward_achievement(index as integer)
     with achievement_definitions_get_by_index(index)
         ach_debug("rewarding '" & .name & "'")
         Steam.reward_achievement .steam_id
+    end with
+    with achievement_progress(index)
+        .rewarded = true
+        .rewarded_date = NOW
     end with
 end sub
 

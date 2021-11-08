@@ -293,6 +293,8 @@ SUB gamestate_from_reload(byval node as Reload.NodePtr)
   fadeout 0, 0, 0
  END IF
 
+ achievements_reset ' notify the acheivement subsystem that tags are going to go crazy for a bit
+
  READNODE node, default
   node."ver".ignore
   node."game_client".ignore
