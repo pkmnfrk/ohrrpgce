@@ -277,7 +277,7 @@ v_free modified_lumps
 
 restoremode
 
-Uninitialize_Steam()
+Steam.uninitialize()
 
 debuginfo "End."
 terminate_program errorout

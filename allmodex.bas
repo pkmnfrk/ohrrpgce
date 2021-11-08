@@ -1671,7 +1671,7 @@ function dowait () as bool
 	dim starttime as double = timer
 	do while timer <= waittime - 0.0005
 		io_waitprocessing()
-		run_steam_frame
+		Steam.run_frame
 		sleep bound((waittime - timer) * 1000, 1, 5)
 	loop
 	' dowait might be called after waittime has already passed, ignore that

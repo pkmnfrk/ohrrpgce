@@ -4,11 +4,17 @@
 
 ' #define DEBUG_STEAM
 
+namespace Steam
+
 #ifdef DEBUG_STEAM
 declare sub steam_debug(msg as string)
 #else
 #define steam_debug(x)
 #endif
+
+' event handlers
+
+declare sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
 
 
 dim shared steamworks_handle as any ptr = null
@@ -63,7 +69,7 @@ dim shared steam_user_stats as ISteamUserStats ptr
 	end if
 #endmacro
 
-function initialize_steam() as boolean
+function initialize() as boolean
 
     #ifdef __FB_WIN32__
         #ifdef __FB_64BIT__
@@ -107,7 +113,7 @@ function initialize_steam() as boolean
     
     if SteamAPI_Init() = false then
         steam_debug("unable to initialize steamworks")
-        uninitialize_Steam()
+        uninitialize()
         return false
     end if
 
@@ -134,19 +140,19 @@ function initialize_steam() as boolean
 
 end function
 
-sub uninitialize_steam()
+sub uninitialize()
     if steamworks_handle <> null then
         dylibfree(steamworks_handle)
         steamworks_handle = null
     end if
 end sub
 
-function steam_available() as boolean
+function available() as boolean
     return steamworks_handle <> null
 end function
 
 sub reward_achievement(id as const string)
-    if steam_available() = false then return
+    if available() = false then return
 
     if SteamAPI_ISteamUserStats_SetAchievement(steam_user_stats, id) = false then
         steam_debug("unable to reward achievement: " & id)
@@ -158,7 +164,7 @@ sub reward_achievement(id as const string)
 end sub
 
 sub clear_achievement(id as string)
-    if steam_available() = false then return
+    if available() = false then return
 
     if SteamAPI_ISteamUserStats_ClearAchievement(steam_user_stats, id) = false then
         steam_debug("unable to clear an achievement: " & id)
@@ -166,7 +172,7 @@ sub clear_achievement(id as string)
 end sub
 
 sub notify_achievement_progress(id as const string, progress as integer, max_progress as integer)
-    if steam_available() = false then return
+    if available() = false then return
 
     if SteamAPI_ISteamUserStats_IndicateAchievementProgress(steam_user_stats, id, progress, max_progress) = false then
         steam_debug("unable to indicate achievement progress: " & id)
@@ -187,8 +193,8 @@ end sub
 
 dim shared achieve_timer as integer = -1
 
-sub run_steam_frame()
-    if steam_available() = false then return
+sub run_frame()
+    if available() = false then return
 
     if achieve_timer >= 0 then
         achieve_timer -= 1
@@ -256,7 +262,7 @@ sub run_steam_frame()
     wend
 end sub
 
-sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
+private sub OnUserStatsReceived(msg as UserStatsReceived_t ptr)
     steam_debug("On User Stats Received")
 
     ' unsure if we actually need to do anything in response to this.
@@ -275,3 +281,5 @@ sub steam_debug(msg as string)
     debug "steam: " & msg
 end sub
 #endif
+
+end namespace

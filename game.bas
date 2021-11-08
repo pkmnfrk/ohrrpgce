@@ -266,7 +266,7 @@ IF running_under_Custom THEN debuginfo "Spawned from Custom"
 
 '============================== Initialise backends ===========================
 
-IF Initialize_Steam() THEN
+IF Steam.Initialize() THEN
   debuginfo "Steam initialized"
 ELSE
   debuginfo "Steam not initialized"

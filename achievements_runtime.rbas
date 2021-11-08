@@ -24,6 +24,7 @@ using Reload
 declare function mark_tag_as_seen(index as integer, tag as integer) as boolean
 declare function needs_rewarding(index as integer) as boolean
 declare function needs_progress_update(index as integer) as boolean
+declare sub reward_achievement(index as integer)
 
 #ifdef DEBUG_ACHIEVEMENTS
 declare sub ach_debug(msg as string) ' this is actually defined in achievements.rbas
@@ -52,13 +53,11 @@ sub achievements_evaluate_tags()
                 if mark_tag_as_seen(index, tag) then
                     if needs_rewarding(index) then
                         ' reward the achievement
-                        ach_debug("rewarding '" & .name & "'")
-                        v_append rewarded_achievements, .id
-                        reward_achievement .steam_id
+                        reward_achievement index
                     elseif needs_progress_update(index) then
                         ' ping user with progress
                         ach_debug("notifying progress on '" & .name & "'")
-                        notify_achievement_progress .steam_id, achievement_progress(index).value, .max_value
+                        Steam.notify_achievement_progress .steam_id, achievement_progress(index).value, .max_value
                     end if
                 end if
             next
@@ -237,6 +236,13 @@ private function needs_progress_update(index as integer) as boolean
         andalso progress.value > 0 _
         andalso (progress.value mod achievement.progress_interval) = 0
 end function
+
+private sub reward_achievement(index as integer)
+    with achievement_definitions_get_by_index(index)
+        ach_debug("rewarding '" & .name & "'")
+        Steam.reward_achievement .steam_id
+    end with
+end sub
 
 #ifdef DEBUG_ACHIEVEMENTS
 private sub ach_debug(msg as string)
