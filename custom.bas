@@ -967,12 +967,6 @@ FUNCTION newRPGfile (templatefile as string, newrpg as string) as bool
  RETURN write_rpg_or_rpgdir(workingdir, newrpg)
 END FUNCTION
 
-' Argument is a timeserial
-FUNCTION format_date(timeser as double) as string
- IF timeser = 0 THEN RETURN "0"
- RETURN FORMAT(timeser, "yyyy mmm dd hh:mm:ss")
-END FUNCTION
-
 'Returns the last mtime of any file in a directory (excluding *.tmp)
 FUNCTION directory_last_mtime(directory as string) as double
  DIM lasttime as double = 0
