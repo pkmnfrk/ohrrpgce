@@ -954,10 +954,7 @@ FUNCTION newRPGfile (templatefile as string, newrpg as string) as bool
  IF vernode THEN FreeNode vernode
 
  '--Set creation time, wipe edit_time
- SetChildNode(root_node, "edit_time", 0.)
- DIM created_node as NodePtr
- created_node = SetChildNode(root_node, "created", NOW)
- SetChildNode(created_node, "str", format_date(NOW))
+ SetChildNodeDate(root_node, "edit_time", 0.)
 
  close_general_reld
 

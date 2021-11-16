@@ -1,6 +1,7 @@
 <!-- source for achievements.reld, until we have an editor -->
 <achievements>
     <next_id>4</next_id>
+    <permanent/>
     <achievement>
         1
         <name>Finished the Job</name>

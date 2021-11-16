@@ -1,6 +1,7 @@
 #include "achievements_runtime.bi"
 #include "achievements.bi"
 #include "moresubs.bi"
+#include "purchase.bi"
 #include "steam.bi"
 #include "vbcompat.bi" 'for NOW
 
@@ -156,9 +157,7 @@ sub achievements_save(node as NodePtr)
 
             AppendChildNode(achievement, "value", .value)
             if .rewarded then
-                AppendChildNode(achievement, "rewarded")
-                dim rewarded_date as NodePtr = AppendChildNode(achievement, "rewarded_date", .rewarded_date)
-                AppendChildNode(rewarded_date, "str", format_date(.rewarded_date))
+                SetChildNodeDate(achievement, "rewarded", NOW())
             end if
 
             dim tags as NodePtr = AppendChildNode(achievement, "tags")
@@ -255,6 +254,8 @@ private function needs_progress_update(index as integer) as boolean
 end function
 
 private sub reward_achievement(index as integer)
+    dim needs_persist as boolean = false
+
     with achievement_definitions_get_by_index(index)
         ach_debug("rewarding '" & .name & "'")
         Steam.reward_achievement .steam_id
@@ -262,6 +263,33 @@ private sub reward_achievement(index as integer)
     with achievement_progress(index)
         .rewarded = true
         .rewarded_date = NOW
+
+        ' if permanent, persist in global store
+        if achievement_definitions_is_permanent() then
+            ach_debug("adding achievement to persist.reld")
+            dim persist as NodePtr = get_persist_reld()
+
+            ' first, find the achievements node
+            dim achievements as NodePtr = GetOrCreateChild(persist, "achievements")
+
+            ' next find a node for this achievement id
+            dim achievement as NodePtr = GetChildByContent(achievements, .id, "achievement")
+            if achievement = 0 then
+                ach_debug("achievement not in persist.reld... adding now!")
+                ' not already rewarded, so let's add it!
+                achievement = CreateNode(achievements, "achievement")
+                AddChild(achievements, achievement)
+
+                SetContent(achievement, .id)
+                SetChildNodeDate(achievement, "rewarded_date", NOW())
+
+                write_persist_reld
+            else
+                ach_debug("achievement already in persist.reld, skipping")
+            end if
+        else
+            ach_debug("achievmeent is per-save, so not adding to persist")
+        end if
     end with
 end sub
 
