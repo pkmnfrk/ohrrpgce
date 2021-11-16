@@ -43,7 +43,10 @@ dim shared save_loaded as boolean = false
 sub achievements_evaluate_tags()
     ach_debug("achievements_evaluate_tags")
 
-    if save_loaded = false then return 'don't evaluate anything before the save has actually been loaded
+    if save_loaded = false then
+        ach_debug("save is not loaded, aborting evaluation")
+        return 'don't evaluate anything before the save has actually been loaded
+    end if
 
     for index as integer = 0 to ubound(achievement_progress)
         ach_debug("evaluating #" & index)
@@ -71,8 +74,6 @@ sub achievements_evaluate_tags()
 end sub
 
 sub achievements_reset
-    if save_loaded = 0 then return ' not necessary if the save hasn't been loaded
-    
     dim count as integer = achievement_definitions_count()
     ach_debug("resetting achievement data to " & count)
 
